@@ -4,6 +4,7 @@ const ejs = require("ejs");
 const app = express();
 const bodyParser = require("body-parser");
 const port = 3000;
+const moment = require("moment");
 
 app.set("view engine", "ejs");
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -17,58 +18,72 @@ const con = mysql.createConnection({
   database: "express_db",
 });
 
-
-// mysqlからデータを持ってくる
 app.get("/", (req, res) => {
-  const sql = "select * from personas";
+  const requestedDate = req.query.month || moment().format('YYYY-MM-DD');
+  const currentMonth = moment(requestedDate).format('YYYY-MM-DD');
+  const prevMonth = moment(currentMonth).subtract(1, 'month').format('YYYY-MM-DD');
+  const nextMonth = moment(currentMonth).add(1, 'month').format('YYYY-MM-DD');
 
-  app.post("/", (req, res) => {
-    const sql = "INSERT INTO personas SET ?";
-    con.query(sql, req.body, function (err, result, fields) {
-      if (err) throw err;
-      console.log(result);
-      res.redirect("/");
-    });
-  });
+  con.query("SELECT * FROM events", (error, results) => {
+    if (error) throw error;
+    const events = results.map(event => ({
+      title: event.title,
+      date: moment(event.date).format('YYYY-MM-DD')
+    }));
 
-  app.get("/create", (req, res) => {
-    res.sendFile(path.join(__dirname, "html/form.html"));
-  });
+    const daysOfWeek = moment.weekdaysShort();
+    const daysInMonth = moment(currentMonth).daysInMonth();
+    const firstDay = moment(currentMonth).startOf('month').format('dddd');
+    const calendar = [];
 
-  con.query(sql, function (err, result, fields) {
-    if (err) throw err;
+    let dayCounter = 1;
+    for (let i = 0; i < 6; i++) {
+      const week = [];
+      for (let j = 0; j < 7; j++) {
+        if ((i === 0 && j < daysOfWeek.indexOf(firstDay)) || dayCounter > daysInMonth) {
+          week.push({ day: "", month: "" });
+        } else {
+          const currentDate = moment(`${dayCounter}-${currentMonth}`, 'D-M-YYYY').format('YYYY-MM-DD');
+          const eventsForDay = events.filter(event => event.date === currentDate);
+          week.push({ day: dayCounter, month: currentMonth, events: eventsForDay });
+          dayCounter++;
+        }
+      }
+      calendar.push(week);
+    }
+
     res.render("index", {
-      personas: result
+      calendar,
+      daysOfWeek,
+      currentMonth,
+      prevMonth,
+      nextMonth,
+      moment: moment
     });
   });
 });
 
-app.get("/edit/:id", (req, res) => {
-  const sql = "SELECT * FROM personas WHERE id = ?";
-  con.query(sql, [req.params.id], function (err, result, fields) {
-    if (err) throw err;
-    res.render("edit", {
-      persona: result,
-    });
-  });
+app.get("/add", (req, res) => {
+  res.render("add");
 });
 
-app.post("/update/:id", (req, res) => {
-  const sql = "UPDATE personas SET ? WHERE id = " + req.params.id;
-  con.query(sql, req.body, function (err, result, fields) {
-    if (err) throw err;
-    console.log(result);
-    res.redirect("/");
-  });
-});
+app.post("/add", (req, res) => {
+  const { title, organizer, description, date } = req.body;
+  const insertQuery =
+    "INSERT INTO events (title, organizer, description, date) VALUES (?, ?, ?, ?)";
 
-app.get("/delete/:id", (req, res) => {
-  const sql = "DELETE FROM personas WHERE id = ?";
-  con.query(sql, [req.params.id], function (err, result, fields) {
-    if (err) throw err;
-    console.log(result);
-    res.redirect("/");
-  });
+    con.query(
+      insertQuery,
+      [title, organizer, description, date],
+      (error, results) => {
+        if (error) {
+          console.error("Error adding event:", error);
+          throw error;
+        }
+        console.log("Event added successfully!");
+        res.redirect("/");
+      }
+    );
 });
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
