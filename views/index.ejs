@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>Calendar App</title>
+    </head>
+    <body>
+        <div class="calendar">
+            <ul class="event-list">
+                <% events.forEach(event => { %>
+                    <li class="event-item">
+                        <strong><%= event.title %></strong>
+                        <p><%= event.organizer %> - <%= event.date %></p>
+                    </li>
+                <% }); %>
+            </ul>
+            <a href="/add" class="add-button">スケジュール追加</a>
+        </div>
+        <script type="text/javascript">
+        </script>
+    </body>
+</html>
