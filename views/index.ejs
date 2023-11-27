@@ -7,12 +7,11 @@
             body {
                 font-family: 'Arial', sans-serif;
                 background-color: #f4f4f4;
-                margin: 0;
+                margin: 200px 0;
                 padding: 0;
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                height: 100vh;
             }
 
             .calendar {
@@ -142,6 +141,7 @@
                 height: 100px;
             }
         </style>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     </head>
     <body>
         <div class="calendar">
@@ -165,22 +165,26 @@
                         <% for (const week of calendar) { %>
                             <tr>
                                 <% for (const day of week) { %>
-                                    <td class="day" onclick="openModal('<%= day.month %>', '<%= day.day %>')">
-                                        <% if (day.month===currentMonth) { %>
+                                    <td class="day" onclick="displayEvents('<%= day.day %>', '<%= day.month %>', '<%= JSON.stringify(day.events) %>')">
+                                        <% if (day.day !=="" ) { %>
                                             <span>
                                                 <%= day.day %>
+                                                    <% const currentDate=moment(`${day.month}-${day.day}`, "YYYY-M-D" ).format("YYYY-MM-DD"); %>
+                                                        <% const eventsForDay=day.events.filter(event=> moment(event.date).isSame(currentDate, 'day')); %> <% if (eventsForDay.length> 0) { %> <ul class="events">
+                                                                    <% for (const event of eventsForDay) { %>
+                                                                        <li>
+                                                                            <%= event.title %> - <%= event.organizer %> (<%= event.date %>)
+                                                                        </li>
+                                                                        <% } %>
+                                                                </ul>
+                                                                <% } else { %>
+                                                                    <span></span>
+                                                                    <% } %>
                                             </span>
-                                            <ul class="events">
-                                                <% day.events.forEach(event=> { %> <li>
-                                                        <%= event.title %>
-                                                    </li>
-                                                    <% }); %>
-                                            </ul>
                                             <% } else { %>
-                                                <span class="other-month">
-                                                    <%= day.day %>
-                                                </span>
+                                                <span class="other-month"></span>
                                                 <% } %>
+                                                    <pre style="display:none;"><%= JSON.stringify(day.events, null, 2) %></pre>
                                     </td>
                                     <% } %>
                             </tr>
@@ -188,37 +192,113 @@
                     </tbody>
                 </table>
             </div>
-        </div>
-        <div id="myModal" class="modal">
-            <div class="modal-content">
-                <span class="close" onclick="closeModal()">&times;</span>
-                <h2>予定を記入する</h2>
-                <form id="eventForm" action="/add" method="post">
-                    <label for="title">タイトル:</label>
-                    <input type="text" id="title" name="title" required>
-                    <label for="organizer">記入者:</label>
-                    <input type="text" id="organizer" name="organizer" required>
-                    <label for="description">スケジュール内容:</label>
-                    <textarea id="description" name="description" required></textarea>
-                    <input type="hidden" id="dateInput" name="date" value="">
-                    <button type="submit">送信</button>
-                </form>
+            <div id="eventDetailsModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeEventDetailsModal()">&times;</span>
+                    <div id="eventDetailsContent"></div>
+                </div>
             </div>
-        </div>
-        <script type="text/javascript">
-            function openModal(month, day) {
+            <div id="myModal" class="modal">
+                <div class="modal-content">
+                    <span class="close" onclick="closeModal()">&times;</span>
+                    <h2>予定を記入する</h2>
+                    <form id="eventForm" action="/add" method="post">
+                        <label for="title">タイトル:</label>
+                        <input type="text" id="title" name="title" required>
+                        <label for="organizer">記入者:</label>
+                        <input type="text" id="organizer" name="organizer" required>
+                        <label for="description">スケジュール内容:</label>
+                        <textarea id="description" name="description" required></textarea>
+                        <input type="hidden" id="dateInput" name="date" value="">
+                        <button type="submit">送信</button>
+                    </form>
+                </div>
+            </div>
+            <script type="text/javascript">
                 const modal = document.getElementById('myModal');
                 const dateInput = document.getElementById('dateInput');
 
-                dateInput.value = `${day}-${month}`;
+                function displayEvents(day, month, events, event) {
+                    const clickedDate = moment(`${month}-${day}`, "YYYY-MM-D").format("YYYY-MM-DD");
+                    dateInput.value = clickedDate;
 
-                modal.style.display = 'block';
-            }
+                    try {
+                        const parsedEvents = JSON.parse(events);
+                        const matchingEvents = parsedEvents.filter(event => moment(event.date).isSame(clickedDate, 'day'));
 
-            function closeModal() {
-                const modal = document.getElementById('myModal');
-                modal.style.display = 'none';
-            }
-        </script>
+                        console.log("clickedDate after setting:", clickedDate);
+                        console.log("parsedEvents:", parsedEvents);
+                        console.log("matchingEvents:", matchingEvents);
+
+                        if (matchingEvents.length > 0) {
+                            console.log("Matching Events:", matchingEvents);
+                            modal.style.display = 'block';
+
+                            const eventList = modal.querySelector('.modal-content .events') || document.createElement('ul');
+                            eventList.innerHTML = '';
+
+                            matchingEvents.forEach(event => {
+                                const listItem = document.createElement('li');
+                                listItem.textContent = `${event.title} - ${event.organizer}`;
+                                eventList.appendChild(listItem);
+                            });
+
+                            modal.querySelector('.modal-content').appendChild(eventList);
+                        } else {
+                            alert('No events for the selected date');
+                        }
+                    } catch (error) {
+                        console.error('Error parsing events:', error);
+                    }
+                }
+
+
+                function closeModal() {
+                    modal.style.display = 'none';
+
+                    const modalContent = modal.querySelector('.modal-content');
+                    const eventList = modalContent.querySelector('.events');
+                    if (eventList) {
+                        eventList.innerHTML = '';
+                    }
+                }
+
+
+                function viewEventDetails(date, title) {
+                    const detailsModal = document.getElementById('eventDetailsModal');
+                    const detailsContent = document.getElementById('eventDetailsContent');
+
+                    fetch(`/events/${date}?title=${title}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            const eventDetails = data.event;
+                            detailsContent.innerHTML = `
+                    <h2>${eventDetails.title}</h2>
+                    <p>日付: ${eventDetails.date}</p>
+                    <p>記入者: ${eventDetails.organizer}</p>
+                    <p>内容: ${eventDetails.description}</p>
+                `;
+                            detailsModal.style.display = 'block';
+                        })
+                        .catch(error => {
+                            console.error('Error fetching event details:', error);
+                        });
+                }
+
+                function closeEventDetailsModal() {
+                    const detailsModal = document.getElementById('eventDetailsModal');
+                    detailsModal.style.display = 'none';
+                }
+
+                document.getElementById("eventForm").addEventListener("submit", function (event) {
+                    const dateInputValue = document.getElementById("dateInput").value;
+                    console.log("Received date:", dateInputValue);
+
+                    const formattedDate = moment(dateInputValue, "D-M-YYYY").format("YYYY-MM-DD");
+                    console.log("Formatted date:", formattedDate);
+
+                    document.getElementById("dateInput").value = formattedDate;
+                });
+            </script>
     </body>
 </html>
