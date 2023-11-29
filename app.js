@@ -33,6 +33,8 @@ app.get("/", (req, res) => {
       return res.status(500).send("Internal Server Error");
     }
 
+    console.log("All events:", results);
+
     const daysOfWeek = moment.weekdaysShort();
     const daysInMonth = moment(currentMonth).daysInMonth();
     const firstDay = moment(currentMonth).startOf("month").format("dddd");
@@ -87,6 +89,7 @@ app.get("/", (req, res) => {
       prevMonth,
       nextMonth,
       moment: moment,
+      events: results,
     });
   });
 });
@@ -116,12 +119,7 @@ app.post("/add", (req, res) => {
     "INSERT INTO events (title, organizer, description, date) VALUES (?, ?, ?, ?)";
 
   console.log("Insert query:", insertQuery);
-  console.log("Insert values:", [
-    title,
-    organizer,
-    description,
-    formattedDate,
-  ]);
+  console.log("Insert values:", [title, organizer, description, formattedDate]);
 
   con.query(
     insertQuery,
@@ -136,7 +134,6 @@ app.post("/add", (req, res) => {
     }
   );
 });
-
 
 app.get("/events/:date", (req, res) => {
   const requestedDate = req.params.date;
@@ -168,5 +165,30 @@ app.get("/events/:date", (req, res) => {
     }
   );
 });
+
+app.post("/update", (req, res) => {
+  console.log("Received update request body:", req.body);
+
+  const { title, organizer, description, date } = req.body;
+
+  console.log("Received update request with data:", { title, organizer, description, date });
+
+  const updateQuery =
+      "UPDATE events SET title = ?, organizer = ?, description = ? WHERE date = ?";
+
+  con.query(
+      updateQuery,
+      [title, organizer, description, date],
+      (error, results) => {
+          if (error) {
+              console.error("Error updating event:", error);
+              return res.status(500).json({ error: "Internal Server Error" });
+          }
+          console.log("Event updated successfully!");
+          res.json({ success: true });
+      }
+  );
+});
+
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));

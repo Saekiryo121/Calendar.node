@@ -7,11 +7,11 @@
             body {
                 font-family: 'Arial', sans-serif;
                 background-color: #f4f4f4;
-                margin: 200px 0;
+                margin: 0;
                 padding: 0;
-                display: flex;
                 justify-content: center;
                 align-items: center;
+                height: 100vh;
             }
 
             .calendar {
@@ -20,6 +20,7 @@
                 background-color: #fff;
                 border-radius: 8px;
                 box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                margin: 50px auto;
             }
 
             .header {
@@ -140,6 +141,46 @@
             textarea {
                 height: 100px;
             }
+
+            .events-list {
+                width: 80%;
+                display: flex;
+                flex-direction: column;
+                margin: 20px auto;
+            }
+
+            .events-list h2 {
+                font-size: 20px;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+
+            .events-list ul {
+                padding: 0;
+                margin: 0;
+            }
+
+            .events-list li {
+                background-color: #eee;
+                border: 1px solid #ddd;
+                padding: 15px;
+                border-radius: 4px;
+                margin-bottom: 10px;
+                list-style: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .event-buttons {
+                display: flex;
+            }
+
+            .event-buttons button {
+                margin-left: 5px;
+                padding: 5px 10px;
+                cursor: pointer;
+            }
         </style>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -167,25 +208,14 @@
                         <% for (const week of calendar) { %>
                             <tr>
                                 <% for (const day of week) { %>
-                                    <td class="day" onclick="displayEvents('<%= day.day %>', '<%= day.month %>', '<%= JSON.stringify(day.events) %>')">
+                                    <td class="day" onclick="displayEvents('<%= day.day %>', '<%= day.month %>')">
                                         <% if (day.day !=="" ) { %>
                                             <span>
                                                 <%= day.day %>
-                                                    <% if (day.events.length> 0) { %> <ul class="events">
-                                                            <% for (const event of day.events) { %>
-                                                                <li>
-                                                                    <%= event.title %> - <%= event.organizer %> (<%= event.date %>)
-                                                                </li>
-                                                                <% } %>
-                                                        </ul>
-                                                        <% } else { %>
-                                                            <span></span>
-                                                            <% } %>
                                             </span>
                                             <% } else { %>
                                                 <span class="other-month"></span>
                                                 <% } %>
-                                                    <pre style="display:none;"><%= JSON.stringify(day.events, null, 2) %></pre>
                                     </td>
                                     <% } %>
                             </tr>
@@ -193,144 +223,224 @@
                     </tbody>
                 </table>
             </div>
-            <div id="eventDetailsModal" class="modal">
-                <div class="modal-content">
-                    <span class="close" onclick="closeEventDetailsModal()">&times;</span>
-                    <div id="eventDetailsContent"></div>
-                </div>
+        </div>
+        <div class="events-list">
+            <h2>イベント一覧</h2>
+            <ul>
+                <% for (const event of events) { %>
+                    <li>
+                        <%= event.title %> - <%= event.organizer %> (<%= moment(event.date).format("YYYY-MM-DD") %>) <%= event.description %>
+                                        <div class="event-buttons">
+                                            <button onclick="editEvent('<%= event.date %>', '<%= event.title %>', '<%= event.organizer %>', '<%= event.description %>')">変更</button>
+                                            <button onclick="deleteEvent('<%= event.date %>', '<%= event.title %>')">削除</button>
+                                        </div>
+                    </li>
+                    <% } %>
+            </ul>
+        </div>
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2>予定を変更する</h2>
+                <form id="editForm" onsubmit="submitEditForm(event)">
+                    <label for="editTitle">タイトル:</label>
+                    <input type="text" id="editTitle" name="title" required>
+                    <label for="editOrganizer">記入者:</label>
+                    <input type="text" id="editOrganizer" name="organizer" required>
+                    <label for="editDescription">スケジュール内容:</label>
+                    <textarea id="editDescription" name="description" required></textarea>
+                    <input type="text" id="editDateInput" name="date" required>
+                    <button type="submit">変更を保存</button>
+                </form>
             </div>
-            <div id="myModal" class="modal">
-                <div class="modal-content">
-                    <span class="close" onclick="closeModal()">&times;</span>
-                    <h2>予定を記入する</h2>
-                    <form id="eventForm" action="/add" method="post">
-                        <label for="title">タイトル:</label>
-                        <input type="text" id="title" name="title" required>
-                        <label for="organizer">記入者:</label>
-                        <input type="text" id="organizer" name="organizer" required>
-                        <label for="description">スケジュール内容:</label>
-                        <textarea id="description" name="description" required></textarea>
-                        <input type="text" id="dateInput" name="date" required>
-                        <button type="submit">送信</button>
-                    </form>
-                </div>
+        </div>
+        <div id="eventDetailsModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEventDetailsModal()">&times;</span>
+                <div id="eventDetailsContent"></div>
             </div>
-            <script type="text/javascript">
+        </div>
+        <div id="myModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>予定を記入する</h2>
+                <form id="eventForm" action="/add" method="post">
+                    <label for="title">タイトル:</label>
+                    <input type="text" id="title" name="title" required>
+                    <label for="organizer">記入者:</label>
+                    <input type="text" id="organizer" name="organizer" required>
+                    <label for="description">スケジュール内容:</label>
+                    <textarea id="description" name="description" required></textarea>
+                    <input type="text" id="dateInput" name="date" required>
+                    <button type="submit">送信</button>
+                </form>
+            </div>
+        </div>
+        <script type="text/javascript">
 
-                flatpickr("#dateInput", {
-                    dateFormat: "Y-m-d",
-                    enableTime: false,
-                    minDate: "today",
-                    onChange: function (selectedDates, dateStr, instance) {
-                        console.log("Selected date on client side:", dateStr);
+            flatpickr("#dateInput", {
+                dateFormat: "Y-m-d",
+                enableTime: false,
+                minDate: "today",
+                onChange: function (selectedDates, dateStr, instance) {
+                    console.log("Selected date on client side:", dateStr);
 
-                        console.log("Formatted date for server side:", instance.formatDate(selectedDates[0], "Y-m-d"));
-                    },
-                });
+                    console.log("Formatted date for server side:", instance.formatDate(selectedDates[0], "Y-m-d"));
+                },
+            });
 
-                const modal = document.getElementById('myModal');
+            const modal = document.getElementById('myModal');
 
-                function displayEvents(day, month, events) {
-                    const clickedDate = moment(`${month}-${day}`, "YYYY-M-D");
+            function displayEvents(day, month, events) {
+                const clickedDate = moment(`${month}-${day}`, "YYYY-M-D");
 
-                    if (!clickedDate.isValid()) {
-                        console.error("Invalid date format");
-                        return;
-                    }
-
-                    const formattedDate = clickedDate.format("YYYY-MM-DD");
-                    console.log("Clicked date:", formattedDate);
-
-                    const formData = new FormData(document.getElementById('eventForm'));
-                    for (const pair of formData.entries()) {
-                        console.log(pair[0], pair[1]);
-                    }
-
-                    document.getElementById('dateInput').value = formattedDate;
-
-                    modal.style.display = 'block';
+                if (!clickedDate.isValid()) {
+                    console.error("Invalid date format");
+                    return;
                 }
 
+                const formattedDate = clickedDate.format("YYYY-MM-DD");
+                console.log("Clicked date:", formattedDate);
 
-                function closeModal() {
-                    modal.style.display = 'none';
-
-                    const modalContent = modal.querySelector('.modal-content');
-                    const eventList = modalContent.querySelector('.events');
-                    if (eventList) {
-                        eventList.innerHTML = '';
-                    }
+                const formData = new FormData(document.getElementById('eventForm'));
+                for (const pair of formData.entries()) {
+                    console.log(pair[0], pair[1]);
                 }
 
-                function viewEventDetails(date, title) {
-                    const detailsModal = document.getElementById('eventDetailsModal');
-                    const detailsContent = document.getElementById('eventDetailsContent');
+                document.getElementById('dateInput').value = formattedDate;
+                modal.style.display = 'block';
+            }
 
-                    fetch(`/events/${date}?title=${title}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            const eventDetails = data.event;
-                            detailsContent.innerHTML = `
+
+            function closeModal() {
+                modal.style.display = 'none';
+
+                const modalContent = modal.querySelector('.modal-content');
+                const eventList = modalContent.querySelector('.events');
+                if (eventList) {
+                    eventList.innerHTML = '';
+                }
+            }
+
+            function viewEventDetails(date, title) {
+                const detailsModal = document.getElementById('eventDetailsModal');
+                const detailsContent = document.getElementById('eventDetailsContent');
+
+                fetch(`/events/${date}?title=${title}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const eventDetails = data.event;
+                        detailsContent.innerHTML = `
                                 <h2>${eventDetails.title}</h2>
                                 <p>日付: ${eventDetails.date}</p>
                                 <p>記入者: ${eventDetails.organizer}</p>
                                 <p>内容: ${eventDetails.description}</p>
                             `;
-                            detailsModal.style.display = 'block';
-                        })
-                        .catch(error => {
-                            console.error('Error fetching event details:', error);
-                        });
-                }
-
-                function closeEventDetailsModal() {
-                    const detailsModal = document.getElementById('eventDetailsModal');
-                    detailsModal.style.display = 'none';
-                }
-
-                document.getElementById("eventForm").addEventListener("submit", function (event) {
-                    event.preventDefault();
-
-                    const title = document.getElementById('title').value;
-                    const organizer = document.getElementById('organizer').value;
-                    const description = document.getElementById('description').value;
-                    const rawDate = moment(document.getElementById('dateInput').value, "YYYY/MM/DD").format("YYYY-MM-DD");
-
-                    let formattedDate;
-                    try {
-                        const parsedDate = moment(rawDate, "YYYY-MM-DD");
-                        if (!parsedDate.isValid()) {
-                            throw new Error("Invalid date");
-                        }
-                        formattedDate = parsedDate.format("YYYY-MM-DD");
-                    } catch (error) {
-                        console.error("日付の解析エラー:", error);
-                        alert("無効な日付形式です");
-                        return;
-                    }
-
-                    const formData = new FormData();
-                    formData.append('title', title);
-                    formData.append('organizer', organizer);
-                    formData.append('description', description);
-                    formData.append('date', formattedDate);
-
-                    fetch('/add', {
-                        method: 'POST',
-                        body: `title=${encodeURIComponent(title)}&organizer=${encodeURIComponent(organizer)}&description=${encodeURIComponent(description)}&date=${encodeURIComponent(formattedDate)}`,
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
+                        detailsModal.style.display = 'block';
                     })
-                        .then(response => response.json())
-                        .then(data => {
-                            console.log('イベントが正常に追加されました:', data);
-                            closeModal();
-                        })
-                        .catch(error => {
-                            console.error('イベントの追加エラー:', error);
-                        });
-                });
-            </script>
+                    .catch(error => {
+                        console.error('Error fetching event details:', error);
+                    });
+            }
+
+            function closeEventDetailsModal() {
+                const detailsModal = document.getElementById('eventDetailsModal');
+                detailsModal.style.display = 'none';
+            }
+
+            document.getElementById("eventForm").addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                const title = document.getElementById('title').value;
+                const organizer = document.getElementById('organizer').value;
+                const description = document.getElementById('description').value;
+                const rawDate = moment(document.getElementById('dateInput').value, "YYYY/MM/DD").format("YYYY-MM-DD");
+
+                let formattedDate;
+                try {
+                    const parsedDate = moment(rawDate, "YYYY-MM-DD");
+                    if (!parsedDate.isValid()) {
+                        throw new Error("Invalid date");
+                    }
+                    formattedDate = parsedDate.format("YYYY-MM-DD");
+                } catch (error) {
+                    console.error("日付の解析エラー:", error);
+                    alert("無効な日付形式です");
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('title', title);
+                formData.append('organizer', organizer);
+                formData.append('description', description);
+                formData.append('date', formattedDate);
+
+                fetch('/add', {
+                    method: 'POST',
+                    body: `title=${encodeURIComponent(title)}&organizer=${encodeURIComponent(organizer)}&description=${encodeURIComponent(description)}&date=${encodeURIComponent(formattedDate)}`,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に追加されました:', data);
+                        closeModal();
+                    })
+                    .catch(error => {
+                        console.error('イベントの追加エラー:', error);
+                    });
+            });
+
+            function editEvent(date, title, organizer, description) {
+                document.getElementById('editTitle').value = title;
+                document.getElementById('editOrganizer').value = organizer;
+                document.getElementById('editDescription').value = description;
+                document.getElementById('editDateInput').value = date;
+
+                document.getElementById('editModal').style.display = 'block';
+            }
+
+            function closeEditModal() {
+                document.getElementById('editModal').style.display = 'none';
+            }
+
+            function submitEditForm(event) {
+                event.preventDefault();
+
+                const title = document.getElementById('editTitle').value;
+                const organizer = document.getElementById('editOrganizer').value;
+                const description = document.getElementById('editDescription').value;
+                const rawDate = document.getElementById('editDateInput').value;
+
+                console.log("Submitting edit form with data:", { title, organizer, description, date: rawDate });
+
+                const formattedDate = moment(rawDate).format("YYYY-MM-DD");
+
+                console.log("Formatted date:", formattedDate);
+
+                fetch('/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title,
+                        organizer,
+                        description,
+                        date: formattedDate,
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に更新されました:', data);
+                        closeEditModal();
+                    })
+                    .catch(error => {
+                        console.error('イベントの更新エラー:', error);
+                    });
+            }
+
+        </script>
     </body>
 </html>
