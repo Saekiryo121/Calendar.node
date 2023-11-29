@@ -142,6 +142,8 @@
             }
         </style>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     </head>
     <body>
         <div class="calendar">
@@ -169,17 +171,16 @@
                                         <% if (day.day !=="" ) { %>
                                             <span>
                                                 <%= day.day %>
-                                                    <% const currentDate=moment(`${day.month}-${day.day}`, "YYYY-M-D" ).format("YYYY-MM-DD"); %>
-                                                        <% const eventsForDay=day.events.filter(event=> moment(event.date).isSame(currentDate, 'day')); %> <% if (eventsForDay.length> 0) { %> <ul class="events">
-                                                                    <% for (const event of eventsForDay) { %>
-                                                                        <li>
-                                                                            <%= event.title %> - <%= event.organizer %> (<%= event.date %>)
-                                                                        </li>
-                                                                        <% } %>
-                                                                </ul>
-                                                                <% } else { %>
-                                                                    <span></span>
-                                                                    <% } %>
+                                                    <% if (day.events.length> 0) { %> <ul class="events">
+                                                            <% for (const event of day.events) { %>
+                                                                <li>
+                                                                    <%= event.title %> - <%= event.organizer %> (<%= event.date %>)
+                                                                </li>
+                                                                <% } %>
+                                                        </ul>
+                                                        <% } else { %>
+                                                            <span></span>
+                                                            <% } %>
                                             </span>
                                             <% } else { %>
                                                 <span class="other-month"></span>
@@ -209,47 +210,45 @@
                         <input type="text" id="organizer" name="organizer" required>
                         <label for="description">スケジュール内容:</label>
                         <textarea id="description" name="description" required></textarea>
-                        <input type="hidden" id="dateInput" name="date" value="">
+                        <input type="text" id="dateInput" name="date" required>
                         <button type="submit">送信</button>
                     </form>
                 </div>
             </div>
             <script type="text/javascript">
+
+                flatpickr("#dateInput", {
+                    dateFormat: "Y-m-d",
+                    enableTime: false,
+                    minDate: "today",
+                    onChange: function (selectedDates, dateStr, instance) {
+                        console.log("Selected date on client side:", dateStr);
+
+                        console.log("Formatted date for server side:", instance.formatDate(selectedDates[0], "Y-m-d"));
+                    },
+                });
+
                 const modal = document.getElementById('myModal');
-                const dateInput = document.getElementById('dateInput');
 
-                function displayEvents(day, month, events, event) {
-                    const clickedDate = moment(`${month}-${day}`, "YYYY-MM-D").format("YYYY-MM-DD");
-                    dateInput.value = clickedDate;
+                function displayEvents(day, month, events) {
+                    const clickedDate = moment(`${month}-${day}`, "YYYY-M-D");
 
-                    try {
-                        const parsedEvents = JSON.parse(events);
-                        const matchingEvents = parsedEvents.filter(event => moment(event.date).isSame(clickedDate, 'day'));
-
-                        console.log("clickedDate after setting:", clickedDate);
-                        console.log("parsedEvents:", parsedEvents);
-                        console.log("matchingEvents:", matchingEvents);
-
-                        if (matchingEvents.length > 0) {
-                            console.log("Matching Events:", matchingEvents);
-                            modal.style.display = 'block';
-
-                            const eventList = modal.querySelector('.modal-content .events') || document.createElement('ul');
-                            eventList.innerHTML = '';
-
-                            matchingEvents.forEach(event => {
-                                const listItem = document.createElement('li');
-                                listItem.textContent = `${event.title} - ${event.organizer}`;
-                                eventList.appendChild(listItem);
-                            });
-
-                            modal.querySelector('.modal-content').appendChild(eventList);
-                        } else {
-                            alert('No events for the selected date');
-                        }
-                    } catch (error) {
-                        console.error('Error parsing events:', error);
+                    if (!clickedDate.isValid()) {
+                        console.error("Invalid date format");
+                        return;
                     }
+
+                    const formattedDate = clickedDate.format("YYYY-MM-DD");
+                    console.log("Clicked date:", formattedDate);
+
+                    const formData = new FormData(document.getElementById('eventForm'));
+                    for (const pair of formData.entries()) {
+                        console.log(pair[0], pair[1]);
+                    }
+
+                    document.getElementById('dateInput').value = formattedDate;
+
+                    modal.style.display = 'block';
                 }
 
 
@@ -263,7 +262,6 @@
                     }
                 }
 
-
                 function viewEventDetails(date, title) {
                     const detailsModal = document.getElementById('eventDetailsModal');
                     const detailsContent = document.getElementById('eventDetailsContent');
@@ -273,11 +271,11 @@
                         .then(data => {
                             const eventDetails = data.event;
                             detailsContent.innerHTML = `
-                    <h2>${eventDetails.title}</h2>
-                    <p>日付: ${eventDetails.date}</p>
-                    <p>記入者: ${eventDetails.organizer}</p>
-                    <p>内容: ${eventDetails.description}</p>
-                `;
+                                <h2>${eventDetails.title}</h2>
+                                <p>日付: ${eventDetails.date}</p>
+                                <p>記入者: ${eventDetails.organizer}</p>
+                                <p>内容: ${eventDetails.description}</p>
+                            `;
                             detailsModal.style.display = 'block';
                         })
                         .catch(error => {
@@ -291,13 +289,47 @@
                 }
 
                 document.getElementById("eventForm").addEventListener("submit", function (event) {
-                    const dateInputValue = document.getElementById("dateInput").value;
-                    console.log("Received date:", dateInputValue);
+                    event.preventDefault();
 
-                    const formattedDate = moment(dateInputValue, "D-M-YYYY").format("YYYY-MM-DD");
-                    console.log("Formatted date:", formattedDate);
+                    const title = document.getElementById('title').value;
+                    const organizer = document.getElementById('organizer').value;
+                    const description = document.getElementById('description').value;
+                    const rawDate = moment(document.getElementById('dateInput').value, "YYYY/MM/DD").format("YYYY-MM-DD");
 
-                    document.getElementById("dateInput").value = formattedDate;
+                    let formattedDate;
+                    try {
+                        const parsedDate = moment(rawDate, "YYYY-MM-DD");
+                        if (!parsedDate.isValid()) {
+                            throw new Error("Invalid date");
+                        }
+                        formattedDate = parsedDate.format("YYYY-MM-DD");
+                    } catch (error) {
+                        console.error("日付の解析エラー:", error);
+                        alert("無効な日付形式です");
+                        return;
+                    }
+
+                    const formData = new FormData();
+                    formData.append('title', title);
+                    formData.append('organizer', organizer);
+                    formData.append('description', description);
+                    formData.append('date', formattedDate);
+
+                    fetch('/add', {
+                        method: 'POST',
+                        body: `title=${encodeURIComponent(title)}&organizer=${encodeURIComponent(organizer)}&description=${encodeURIComponent(description)}&date=${encodeURIComponent(formattedDate)}`,
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            console.log('イベントが正常に追加されました:', data);
+                            closeModal();
+                        })
+                        .catch(error => {
+                            console.error('イベントの追加エラー:', error);
+                        });
                 });
             </script>
     </body>

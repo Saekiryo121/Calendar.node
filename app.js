@@ -7,6 +7,7 @@ const port = 3000;
 const moment = require("moment");
 
 app.set("view engine", "ejs");
+app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 const mysql = require("mysql2");
@@ -67,7 +68,7 @@ app.get("/", (req, res) => {
 
           week.push({
             day: dayCounter,
-            month: currentMonth,
+            month: moment(currentDate).format("YYYY-MM"),
             events: eventsForDay,
           });
 
@@ -95,15 +96,32 @@ app.get("/add", (req, res) => {
 });
 
 app.post("/add", (req, res) => {
+  console.log("Received request body:", req.body);
+
   const { title, organizer, description, date } = req.body;
+
   console.log("Received date:", date);
 
-  const formattedDate = moment(date, "YYYY-MM-D").format("YYYY-MM-DD");
+  const parsedDate = moment(date, "YYYY-MM-DD", true);
+
+  if (!parsedDate.isValid()) {
+    console.error("Invalid date format");
+    return res.status(400).json({ error: "Invalid date format" });
+  }
+
+  const formattedDate = parsedDate.format("YYYY-MM-DD");
   console.log("Formatted date:", formattedDate);
 
-  const insertQuery = "INSERT INTO events (title, organizer, description, date) VALUES (?, ?, ?, ?)";
-  console.log("Formatted date before inserting into database:", formattedDate);
+  const insertQuery =
+    "INSERT INTO events (title, organizer, description, date) VALUES (?, ?, ?, ?)";
 
+  console.log("Insert query:", insertQuery);
+  console.log("Insert values:", [
+    title,
+    organizer,
+    description,
+    formattedDate,
+  ]);
 
   con.query(
     insertQuery,
@@ -111,13 +129,14 @@ app.post("/add", (req, res) => {
     (error, results) => {
       if (error) {
         console.error("Error adding event:", error);
-        return res.status(500).send("Internal Server Error");
+        return res.status(500).json({ error: "Internal Server Error" });
       }
       console.log("Event added successfully!");
-      res.redirect("/");
+      res.json({ success: true });
     }
   );
 });
+
 
 app.get("/events/:date", (req, res) => {
   const requestedDate = req.params.date;
