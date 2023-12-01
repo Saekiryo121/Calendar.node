@@ -171,24 +171,47 @@ app.post("/update", (req, res) => {
 
   const { title, organizer, description, date } = req.body;
 
-  console.log("Received update request with data:", { title, organizer, description, date });
+  console.log("Received update request with data:", {
+    title,
+    organizer,
+    description,
+    date,
+  });
 
   const updateQuery =
-      "UPDATE events SET title = ?, organizer = ?, description = ? WHERE date = ?";
+    "UPDATE events SET title = ?, organizer = ?, description = ? WHERE date = ?";
 
   con.query(
-      updateQuery,
-      [title, organizer, description, date],
-      (error, results) => {
-          if (error) {
-              console.error("Error updating event:", error);
-              return res.status(500).json({ error: "Internal Server Error" });
-          }
-          console.log("Event updated successfully!");
-          res.json({ success: true });
+    updateQuery,
+    [title, organizer, description, date],
+    (error, results) => {
+      if (error) {
+        console.error("Error updating event:", error);
+        return res.status(500).json({ error: "Internal Server Error" });
       }
+      console.log("Event updated successfully!");
+      res.json({ success: true });
+    }
   );
 });
 
+app.delete("/delete", (req, res) => {
+  const date = req.query.date;
+  const title = req.query.title;
+
+  const formattedDate = moment(date).format("YYYY-MM-DD");
+
+  const query = "DELETE FROM events WHERE date = ? AND title = ?";
+
+  con.query(query, [formattedDate, title], (error, results) => {
+    if (error) {
+      console.error("Error deleting event:", error);
+      res.status(500).json({ error: "Internal Server Error" });
+    } else {
+      console.log("Event deleted successfully:", results);
+      res.json({ success: true });
+    }
+  });
+});
 
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));

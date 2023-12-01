@@ -181,8 +181,24 @@
                 padding: 5px 10px;
                 cursor: pointer;
             }
+
+            #reloadButton {
+                margin: 50px auto;
+                padding: 10px;
+                cursor: pointer;
+                background-color: #3498db;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                transition: background-color 0.3s ease;
+                display: block;
+            }
+
+            #reloadButton:hover {
+                background-color: #217dbb;
+            }
         </style>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
         <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     </head>
@@ -238,6 +254,7 @@
                     <% } %>
             </ul>
         </div>
+        <button id="reloadButton" onclick="reloadPage()">画面をリロード</button>
         <div id="editModal" class="modal">
             <div class="modal-content">
                 <span class="close" onclick="closeEditModal()">&times;</span>
@@ -277,7 +294,6 @@
             </div>
         </div>
         <script type="text/javascript">
-
             flatpickr("#dateInput", {
                 dateFormat: "Y-m-d",
                 enableTime: false,
@@ -320,6 +336,7 @@
                 if (eventList) {
                     eventList.innerHTML = '';
                 }
+                reloadPage();
             }
 
             function viewEventDetails(date, title) {
@@ -415,7 +432,14 @@
 
                 console.log("Submitting edit form with data:", { title, organizer, description, date: rawDate });
 
-                const formattedDate = moment(rawDate).format("YYYY-MM-DD");
+                const parsedDate = moment(rawDate, "ddd MMM DD YYYY HH:mm:ss [GMT]ZZ");
+
+                if (!parsedDate.isValid()) {
+                    console.error("無効な日付形式です");
+                    return;
+                }
+
+                const formattedDate = parsedDate.format("YYYY-MM-DD");
 
                 console.log("Formatted date:", formattedDate);
 
@@ -435,12 +459,36 @@
                     .then(data => {
                         console.log('イベントが正常に更新されました:', data);
                         closeEditModal();
+                        reloadPage();
                     })
                     .catch(error => {
                         console.error('イベントの更新エラー:', error);
                     });
             }
 
+            function deleteEvent(date, title) {
+                const confirmDelete = confirm('本当にこのイベントを削除しますか？');
+                if (!confirmDelete) {
+                    return;
+                }
+
+                fetch(`/delete?date=${encodeURIComponent(date)}&title=${encodeURIComponent(title)}`, {
+                    method: 'DELETE',
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に削除されました:', data);
+                        reloadPage();
+                    })
+                    .catch(error => {
+                        console.error('イベントの削除エラー:', error);
+                    });
+            }
+
+            function reloadPage() {
+                location.reload();
+            }
         </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     </body>
 </html>
