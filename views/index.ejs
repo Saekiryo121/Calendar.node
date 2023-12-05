@@ -2,21 +2,567 @@
 <html lang="ja">
     <head>
         <meta charset="UTF-8">
-        <title>Calendar App</title>
+        <title>Custom Calendar</title>
+        <style>
+            body {
+                font-family: 'Arial', sans-serif;
+                background-color: #f4f4f4;
+                margin: 0;
+                padding: 0;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+            }
+
+            .calendar {
+                width: 1000px;
+                max-width: 800px;
+                background-color: #fff;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                margin: 50px auto;
+            }
+
+            .header {
+                background-color: #3498db;
+                color: #fff;
+                padding: 15px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+            }
+
+            .header a {
+                color: #fff;
+                text-decoration: none;
+                font-size: 18px;
+            }
+
+            h2 {
+                margin: 0;
+                font-size: 24px;
+            }
+
+            .calendar-grid {
+                margin: 0 auto;
+                width: 100%;
+                max-width: 800px;
+                overflow: hidden;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+
+            th,
+            td {
+                border: 1px solid #ddd;
+                padding: 15px;
+                text-align: center;
+                width: 14.28%;
+            }
+
+            .day {
+                cursor: pointer;
+                position: relative;
+                transition: background-color 0.3s ease;
+            }
+
+            .day:hover {
+                background-color: #f0f0f0;
+            }
+
+            .other-month {
+                color: #aaa;
+            }
+
+            .events {
+                list-style: none;
+                padding: 0;
+                margin-top: 5px;
+            }
+
+            .events li {
+                background-color: #dff0d8;
+                border: 1px solid #d6e9c6;
+                padding: 10px;
+                border-radius: 4px;
+                margin-top: 5px;
+                word-wrap: break-word;
+            }
+
+            .modal {
+                display: none;
+                position: fixed;
+                z-index: 1;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                overflow: auto;
+                background-color: rgba(0, 0, 0, 0.4);
+                padding-top: 60px;
+            }
+
+            .modal-content {
+                background-color: #fefefe;
+                margin: 5% auto;
+                padding: 20px;
+                border: 1px solid #888;
+                width: 80%;
+            }
+
+            .close {
+                color: #aaa;
+                float: right;
+                font-size: 28px;
+                font-weight: bold;
+            }
+
+            .close:hover,
+            .close:focus {
+                color: black;
+                text-decoration: none;
+                cursor: pointer;
+            }
+
+            form {
+                display: grid;
+                gap: 10px;
+            }
+
+            label {
+                font-weight: bold;
+            }
+
+            textarea {
+                height: 100px;
+            }
+
+            .events-list {
+                width: 80%;
+                display: flex;
+                flex-direction: column;
+                margin: 20px auto;
+            }
+
+            .events-list h2 {
+                font-size: 20px;
+                margin-bottom: 10px;
+                text-align: center;
+            }
+
+            .events-list ul {
+                padding: 0;
+                margin: 0;
+            }
+
+            .events-list li {
+                background-color: #eee;
+                border: 1px solid #ddd;
+                padding: 15px;
+                border-radius: 4px;
+                margin-bottom: 10px;
+                list-style: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+
+            .event-buttons {
+                display: flex;
+            }
+
+            .event-buttons button {
+                margin-left: 5px;
+                padding: 5px 10px;
+                cursor: pointer;
+            }
+
+            #reloadButton {
+                margin: 50px auto;
+                padding: 10px;
+                cursor: pointer;
+                background-color: #3498db;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                font-size: 16px;
+                transition: background-color 0.3s ease;
+                display: block;
+            }
+
+            #reloadButton:hover {
+                background-color: #217dbb;
+            }
+        </style>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     </head>
     <body>
         <div class="calendar">
-            <ul class="event-list">
-                <% events.forEach(event => { %>
-                    <li class="event-item">
-                        <strong><%= event.title %></strong>
-                        <p><%= event.organizer %> - <%= event.date %></p>
+            <div class="header">
+                <a href="/?month=<%= moment(prevMonth).format('YYYY-MM-DD') %>">&lt;</a>
+                <h2><%= currentMonth %></h2>
+                <a href="/?month=<%= moment(nextMonth).format('YYYY-MM-DD') %>">&gt;</a>
+            </div>
+            <div class="calendar-grid">
+                <table class="calendar-table">
+                    <thead>
+                        <tr>
+                            <% for (const day of daysOfWeek) { %>
+                                <th>
+                                    <%= day %>
+                                </th>
+                                <% } %>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% for (const week of calendar) { %>
+                            <tr>
+                                <% for (const day of week) { %>
+                                    <td class="day" data-day="<%= day.day %>" data-month="<%= day.month %>" onclick="displayEvents('<%= day.day %>', '<%= day.month %>')">
+                                        <% if (day.day !=="" ) { %>
+                                            <span>
+                                                <%= day.day %>
+                                            </span>
+                                            <ul class="events">
+                                                <% for (const event of day.events) { %>
+                                                    <li>
+                                                        <%= event.title %> - <%= event.organizer %> (<%= event.date %>) <%= event.description %>
+                                                    </li>
+                                                    <% } %>
+                                            </ul>
+                                            <% } else { %>
+                                                <span class="other-month"></span>
+                                                <% } %>
+                                    </td>
+                                    <% } %>
+                            </tr>
+                            <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="events-list">
+            <h2>イベント一覧</h2>
+            <ul>
+                <% for (const event of events) { %>
+                    <li>
+                        <%= event.title %> - <%= event.organizer %> (<%= moment(event.date).format("YYYY-MM-DD") %>) <%= event.description %>
+                                        <div class="event-buttons">
+                                            <button onclick="editEvent('<%= event.date %>', '<%= event.title %>', '<%= event.organizer %>', '<%= event.description %>')">変更</button>
+                                            <button onclick="deleteEvent('<%= event.date %>', '<%= event.title %>')">削除</button>
+                                        </div>
                     </li>
-                <% }); %>
+                    <% } %>
             </ul>
-            <a href="/add" class="add-button">スケジュール追加</a>
+        </div>
+        <button id="reloadButton" onclick="reloadPage()">画面をリロード</button>
+        <div id="editModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEditModal()">&times;</span>
+                <h2>予定を変更する</h2>
+                <form id="editForm" onsubmit="submitEditForm(event)">
+                    <label for="editTitle">タイトル:</label>
+                    <input type="text" id="editTitle" name="title" required>
+                    <label for="editOrganizer">記入者:</label>
+                    <input type="text" id="editOrganizer" name="organizer" required>
+                    <label for="editDescription">スケジュール内容:</label>
+                    <textarea id="editDescription" name="description" required></textarea>
+                    <input type="text" id="editDateInput" name="date" required>
+                    <button type="submit">変更を保存</button>
+                </form>
+            </div>
+        </div>
+        <div id="eventDetailsModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeEventDetailsModal()">&times;</span>
+                <div id="eventDetailsContent"></div>
+            </div>
+        </div>
+        <div id="myModal" class="modal">
+            <div class="modal-content">
+                <span class="close" onclick="closeModal()">&times;</span>
+                <h2>予定を記入する</h2>
+                <form id="eventForm" action="/add" method="post">
+                    <label for="title">タイトル:</label>
+                    <input type="text" id="title" name="title" required>
+                    <label for="organizer">記入者:</label>
+                    <input type="text" id="organizer" name="organizer" required>
+                    <label for="description">スケジュール内容:</label>
+                    <textarea id="description" name="description" required></textarea>
+                    <input type="text" id="dateInput" name="date" required>
+                    <button type="submit">送信</button>
+                </form>
+            </div>
         </div>
         <script type="text/javascript">
+            flatpickr("#dateInput", {
+                dateFormat: "Y-m-d",
+                enableTime: false,
+                minDate: "today",
+                onChange: function (selectedDates, dateStr, instance) {
+                    console.log("Selected date on client side:", dateStr);
+                    console.log("Formatted date for server side:", instance.formatDate(selectedDates[0], "Y-m-d"));
+                },
+            });
+
+            document.addEventListener('DOMContentLoaded', function () {
+                fetch('/getEvents')
+                    .then(response => response.json())
+                    .then(data => {
+                        events = data.events;
+                        console.log('Fetched events from the server:', events);
+
+                        const currentMonth = moment().format("YYYY-MM");
+                        console.log("Displaying events for month:", currentMonth);
+                        displayEventsForMonth(currentMonth);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching events:', error);
+                    });
+            });
+
+            function displayEventsForMonth(month) {
+                if (!events) {
+                    console.error('Events data is not defined.');
+                    return;
+                }
+
+                const eventsForMonth = events.filter(event => {
+                    const eventMonth = moment(event.date).format("YYYY-MM");
+                    console.log("Event date:", event.date, "Event month:", eventMonth);
+                    return eventMonth === month;
+                });
+
+                console.log('Displaying events for month:', month);
+                console.log('Events for month:', eventsForMonth);
+
+                if (eventsForMonth.length === 0) {
+                    console.warn('No events found for the month of', month);
+                }
+
+                const calendarTable = document.querySelector('.calendar-table');
+
+                if (!calendarTable) {
+                    console.error('Calendar table not found.');
+                    return;
+                }
+
+                eventsForMonth.forEach(event => {
+                    const day = moment(event.date).format("D");
+                    const cell = calendarTable.querySelector(`.day[data-day="${day}"][data-month="${month}"]`);
+                    console.log("Event:", event);
+                    console.log("Day:", day);
+                    console.log("Cell:", cell);
+
+                    if (cell) {
+                        const eventList = document.createElement('ul');
+                        eventList.className = 'events';
+                        const eventItem = document.createElement('li');
+
+                        const description = event.description || '';
+                        eventItem.textContent = `${event.title} - ${event.organizer} (${event.date}) ${description}`;
+
+                        eventList.appendChild(eventItem);
+
+                        cell.appendChild(eventList);
+                    } else {
+                        console.error("Cell not found for day:", day, "and month:", month);
+                        const allCells = document.querySelectorAll('.day');
+                        console.log("All Cells:", allCells);
+                    }
+                });
+            }
+
+
+            const modal = document.getElementById('myModal');
+
+            function displayEvents(day, month, events) {
+                const clickedDate = moment(`${month}-${day}`, "YYYY-M-D");
+
+                if (!clickedDate.isValid()) {
+                    console.error("Invalid date format");
+                    return;
+                }
+
+                const formattedDate = clickedDate.format("YYYY-MM-DD");
+                console.log("Clicked date:", formattedDate);
+
+                const formData = new FormData(document.getElementById('eventForm'));
+                for (const pair of formData.entries()) {
+                    console.log(pair[0], pair[1]);
+                }
+
+                document.getElementById('dateInput').value = formattedDate;
+                modal.style.display = 'block';
+            }
+
+            function closeModal() {
+                modal.style.display = 'none';
+
+                const modalContent = modal.querySelector('.modal-content');
+                const eventList = modalContent.querySelector('.events');
+                if (eventList) {
+                    eventList.innerHTML = '';
+                }
+                reloadPage();
+            }
+
+            function viewEventDetails(date, title) {
+                const detailsModal = document.getElementById('eventDetailsModal');
+                const detailsContent = document.getElementById('eventDetailsContent');
+
+                fetch(`/events/${date}?title=${title}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const eventDetails = data.event;
+                        detailsContent.innerHTML = `
+                                <h2>${eventDetails.title}</h2>
+                                <p>日付: ${eventDetails.date}</p>
+                                <p>記入者: ${eventDetails.organizer}</p>
+                                <p>内容: ${eventDetails.description}</p>
+                            `;
+                        detailsModal.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error fetching event details:', error);
+                    });
+            }
+
+            function closeEventDetailsModal() {
+                const detailsModal = document.getElementById('eventDetailsModal');
+                detailsModal.style.display = 'none';
+            }
+
+            document.getElementById("eventForm").addEventListener("submit", function (event) {
+                event.preventDefault();
+
+                const title = document.getElementById('title').value;
+                const organizer = document.getElementById('organizer').value;
+                const description = document.getElementById('description').value;
+                const rawDate = moment(document.getElementById('dateInput').value, "YYYY/MM/DD").format("YYYY-MM-DD");
+
+                let formattedDate;
+                try {
+                    const parsedDate = moment(rawDate, "YYYY-MM-DD");
+                    if (!parsedDate.isValid()) {
+                        throw new Error("Invalid date");
+                    }
+                    formattedDate = parsedDate.format("YYYY-MM-DD");
+                } catch (error) {
+                    console.error("日付の解析エラー:", error);
+                    alert("無効な日付形式です");
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('title', title);
+                formData.append('organizer', organizer);
+                formData.append('description', description);
+                formData.append('date', formattedDate);
+
+                fetch('/add', {
+                    method: 'POST',
+                    body: `title=${encodeURIComponent(title)}&organizer=${encodeURIComponent(organizer)}&description=${encodeURIComponent(description)}&date=${encodeURIComponent(formattedDate)}`,
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に追加されました:', data);
+                        closeModal();
+                    })
+                    .catch(error => {
+                        console.error('イベントの追加エラー:', error);
+                    });
+            });
+
+            function editEvent(date, title, organizer, description) {
+                document.getElementById('editTitle').value = title;
+                document.getElementById('editOrganizer').value = organizer;
+                document.getElementById('editDescription').value = description;
+                document.getElementById('editDateInput').value = date;
+
+                document.getElementById('editModal').style.display = 'block';
+            }
+
+            function closeEditModal() {
+                document.getElementById('editModal').style.display = 'none';
+            }
+
+            function submitEditForm(event) {
+                event.preventDefault();
+
+                const title = document.getElementById('editTitle').value;
+                const organizer = document.getElementById('editOrganizer').value;
+                const description = document.getElementById('editDescription').value;
+                const rawDate = document.getElementById('editDateInput').value;
+
+                console.log("Submitting edit form with data:", { title, organizer, description, date: rawDate });
+
+                const parsedDate = moment(rawDate, "ddd MMM DD YYYY HH:mm:ss [GMT]ZZ");
+
+                if (!parsedDate.isValid()) {
+                    console.error("無効な日付形式です");
+                    return;
+                }
+
+                const formattedDate = parsedDate.format("YYYY-MM-DD");
+
+                console.log("Formatted date:", formattedDate);
+
+                fetch('/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title,
+                        organizer,
+                        description,
+                        date: formattedDate,
+                    }),
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に更新されました:', data);
+                        closeEditModal();
+                        reloadPage();
+                    })
+                    .catch(error => {
+                        console.error('イベントの更新エラー:', error);
+                    });
+            }
+
+            function deleteEvent(date, title) {
+                const confirmDelete = confirm('本当にこのイベントを削除しますか？');
+                if (!confirmDelete) {
+                    return;
+                }
+
+                fetch(`/delete?date=${encodeURIComponent(date)}&title=${encodeURIComponent(title)}`, {
+                    method: 'DELETE',
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('イベントが正常に削除されました:', data);
+                        reloadPage();
+                    })
+                    .catch(error => {
+                        console.error('イベントの削除エラー:', error);
+                    });
+            }
+
+            function reloadPage() {
+                location.reload();
+            }
         </script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
     </body>
 </html>
