@@ -210,7 +210,7 @@
                 <a href="/?month=<%= moment(nextMonth).format('YYYY-MM-DD') %>">&gt;</a>
             </div>
             <div class="calendar-grid">
-                <table>
+                <table class="calendar-table">
                     <thead>
                         <tr>
                             <% for (const day of daysOfWeek) { %>
@@ -224,11 +224,18 @@
                         <% for (const week of calendar) { %>
                             <tr>
                                 <% for (const day of week) { %>
-                                    <td class="day" onclick="displayEvents('<%= day.day %>', '<%= day.month %>')">
+                                    <td class="day" data-day="<%= day.day %>" data-month="<%= day.month %>" onclick="displayEvents('<%= day.day %>', '<%= day.month %>')">
                                         <% if (day.day !=="" ) { %>
                                             <span>
                                                 <%= day.day %>
                                             </span>
+                                            <ul class="events">
+                                                <% for (const event of day.events) { %>
+                                                    <li>
+                                                        <%= event.title %> - <%= event.organizer %> (<%= event.date %>) <%= event.description %>
+                                                    </li>
+                                                    <% } %>
+                                            </ul>
                                             <% } else { %>
                                                 <span class="other-month"></span>
                                                 <% } %>
@@ -300,10 +307,78 @@
                 minDate: "today",
                 onChange: function (selectedDates, dateStr, instance) {
                     console.log("Selected date on client side:", dateStr);
-
                     console.log("Formatted date for server side:", instance.formatDate(selectedDates[0], "Y-m-d"));
                 },
             });
+
+            document.addEventListener('DOMContentLoaded', function () {
+                fetch('/getEvents')
+                    .then(response => response.json())
+                    .then(data => {
+                        events = data.events;
+                        console.log('Fetched events from the server:', events);
+
+                        const currentMonth = moment().format("YYYY-MM");
+                        console.log("Displaying events for month:", currentMonth);
+                        displayEventsForMonth(currentMonth);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching events:', error);
+                    });
+            });
+
+            function displayEventsForMonth(month) {
+                if (!events) {
+                    console.error('Events data is not defined.');
+                    return;
+                }
+
+                const eventsForMonth = events.filter(event => {
+                    const eventMonth = moment(event.date).format("YYYY-MM");
+                    console.log("Event date:", event.date, "Event month:", eventMonth);
+                    return eventMonth === month;
+                });
+
+                console.log('Displaying events for month:', month);
+                console.log('Events for month:', eventsForMonth);
+
+                if (eventsForMonth.length === 0) {
+                    console.warn('No events found for the month of', month);
+                }
+
+                const calendarTable = document.querySelector('.calendar-table');
+
+                if (!calendarTable) {
+                    console.error('Calendar table not found.');
+                    return;
+                }
+
+                eventsForMonth.forEach(event => {
+                    const day = moment(event.date).format("D");
+                    const cell = calendarTable.querySelector(`.day[data-day="${day}"][data-month="${month}"]`);
+                    console.log("Event:", event);
+                    console.log("Day:", day);
+                    console.log("Cell:", cell);
+
+                    if (cell) {
+                        const eventList = document.createElement('ul');
+                        eventList.className = 'events';
+                        const eventItem = document.createElement('li');
+
+                        const description = event.description || '';
+                        eventItem.textContent = `${event.title} - ${event.organizer} (${event.date}) ${description}`;
+
+                        eventList.appendChild(eventItem);
+
+                        cell.appendChild(eventList);
+                    } else {
+                        console.error("Cell not found for day:", day, "and month:", month);
+                        const allCells = document.querySelectorAll('.day');
+                        console.log("All Cells:", allCells);
+                    }
+                });
+            }
+
 
             const modal = document.getElementById('myModal');
 
@@ -326,7 +401,6 @@
                 document.getElementById('dateInput').value = formattedDate;
                 modal.style.display = 'block';
             }
-
 
             function closeModal() {
                 modal.style.display = 'none';

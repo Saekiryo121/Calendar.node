@@ -214,4 +214,26 @@ app.delete("/delete", (req, res) => {
   });
 });
 
+app.get("/getEvents", (req, res) => {
+  const requestedMonth = req.query.month || moment().format("YYYY-MM-DD");
+
+  con.query("SELECT * FROM events", (error, results) => {
+    if (error) {
+      console.error("Error fetching events for calendar:", error);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+
+    console.log("All events for calendar:", results);
+
+    const eventsForCalendar = results.map(event => ({
+      title: event.title,
+      date: moment(event.date).format("YYYY-MM-DD"),
+      organizer: event.organizer,
+    }));
+
+    res.json({ events: eventsForCalendar });
+  });
+});
+
+
 app.listen(port, () => console.log(`Example app listening on port ${port}!`));
